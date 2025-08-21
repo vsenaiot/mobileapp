@@ -1,6 +1,6 @@
 {
-  "name": "Firebase PWA App",
-  "short_name": "FirebasePWA",
+  "name": "VSENA IOT",
+  "short_name": "VSENA IOT",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -18,3 +18,4 @@
     }
   ]
 }
+
