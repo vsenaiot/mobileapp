@@ -53,7 +53,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
       authDomain: "linknest-6e4c7.firebaseapp.com",
@@ -73,7 +72,7 @@
         if (snapshot.exists()) {
           const url = snapshot.val().link;
           if (url) {
-            document.getElementById("dashboard").src = url; // load in iframe
+            document.getElementById("dashboard").src = url; // load Node-RED dashboard inside app
           } else {
             alert("⚠️ URL is empty!");
           }
@@ -90,22 +89,22 @@
 
   <!-- Service Worker + PWA Install -->
   <script>
-    // Service Worker
+    // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js")
         .then(() => console.log("✅ Service Worker registered"))
         .catch(err => console.error("❌ Service Worker error:", err));
     }
 
-    // PWA install button
+    // PWA install
     let deferredPrompt;
     const installBtn = document.getElementById("installBtn");
 
     window.addEventListener("beforeinstallprompt", (e) => {
-      console.log("📦 beforeinstallprompt fired!");
+      console.log("📦 PWA install prompt fired");
       e.preventDefault();
       deferredPrompt = e;
-      installBtn.style.display = "inline-block"; // show button
+      installBtn.style.display = "inline-block"; // show install button
     });
 
     installBtn.addEventListener("click", async () => {
@@ -116,15 +115,6 @@
         console.log(`User response to install: ${outcome}`);
         deferredPrompt = null;
       }
-    });
-
-    // Optional: fallback if beforeinstallprompt doesn't fire
-    window.addEventListener("load", () => {
-      setTimeout(() => {
-        if (installBtn.style.display === "none") {
-          installBtn.style.display = "inline-block"; // force show for testing
-        }
-      }, 3000);
     });
   </script>
 </body>
