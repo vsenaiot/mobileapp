@@ -2,14 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Redirect Page</title>
-  <link rel="icon" href="assets/image1.png" type="image/png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Node-RED PWA</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#317EFB">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    #installBtn {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      padding: 10px 20px;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 100;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="dashboard" src=""></iframe>
+  <button id="installBtn">⬇️ Install App</button>
+
   <script type="module">
-    // Import Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    // ✅ Your Firebase configuration
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
       authDomain: "linknest-6e4c7.firebaseapp.com",
@@ -20,33 +54,56 @@
       appId: "1:464019230541:web:c980aa3f971092f53ab104"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 🚀 Get last saved URL and redirect
-    async function redirectToLastUrl() {
+    async function loadDashboard() {
       try {
-        const dbRef = ref(db);
-        const snapshot = await get(child(dbRef, "urls/lastUrl"));
+        const snapshot = await get(child(ref(db), "urls/lastUrl"));
         if (snapshot.exists()) {
-          const data = snapshot.val();
-          const lastUrl = data.link; // ✅ Get the actual URL string
-          console.log("Last saved URL:", lastUrl);
-          if (lastUrl) {
-            window.location.href = lastUrl; // Redirect
+          const url = snapshot.val().link;
+          if (url) {
+            document.getElementById("dashboard").src = url; // load in iframe
           } else {
-            alert("⚠️ URL entry is empty!");
+            alert("⚠️ URL is empty!");
           }
         } else {
           alert("⚠️ No URL found in database!");
         }
       } catch (err) {
-        console.error("❌ Error retrieving URL:", err);
+        console.error("❌ Error fetching URL:", err);
       }
     }
 
-    redirectToLastUrl();
+    loadDashboard();
   </script>
-</head>
+
+  <script>
+    // Service Worker registration
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("✅ Service Worker registered"))
+        .catch(err => console.log("❌ Service Worker error:", err));
+    }
+
+    // PWA Install Button
+    let deferredPrompt;
+    const installBtn = document.getElementById("installBtn");
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = "inline-block";
+    });
+
+    installBtn.addEventListener("click", async () => {
+      installBtn.style.display = "none";
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to install: ${outcome}`);
+        deferredPrompt = null;
+      }
+    });
+  </script>
+</body>
 </html>
