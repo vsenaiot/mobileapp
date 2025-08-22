@@ -1,196 +1,43 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VSENA IOT</title>
-<link rel="icon" href="assets/image1.png" type="image/png" />
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#317EFB">
-
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    width: 100vw;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-  }
-
-  /* Loader and EB OFF */
-  #loader, #ebOff {
-    position: fixed;
-    top:0; left:0;
-    width:100%;
-    height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    transition: opacity 0.5s ease-in-out;
-    z-index: 9999;
-    pointer-events: none;
-  }
-
-  #loader {
-    background: linear-gradient(-45deg,#6a11cb,#2575fc,#ff416c,#ff4b2b);
-    background-size:400% 400%;
-    animation: gradientBG 8s ease infinite;
-    color:white;
-    font-size: 24px;
-    font-weight:bold;
-    opacity:1;
-    pointer-events: all;
-  }
-
-  @keyframes gradientBG {
-    0% {background-position:0% 50%;}
-    50% {background-position:100% 50%;}
-    100% {background-position:0% 50%;}
-  }
-
-  #ebOff {
-    background:#111;
-    color:#ff3c3c;
-    font-size:32px;
-    font-weight:bold;
-    text-shadow:2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
-    opacity:0;
-  }
-
-  /* PWA Install Button */
-  #installBtn {
-    position: fixed;
-    bottom: 15px;
-    right: 15px;
-    padding: 12px 20px;
-    background: #ff6f61;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-size: 16px;
-    z-index: 10000;
-    display: none;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-  }
-  #installBtn:hover { transform: scale(1.05); }
-</style>
+  <style>
+    html, body {
+      margin:0;
+      padding:0;
+      height:100vh;
+      width:100vw;
+      font-family: Arial, sans-serif;
+      overflow:hidden;
+      background:#6a11cb; /* matches loader gradient */
+      visibility:hidden;   /* hide until loader is ready */
+    }
+    #loader {
+      position: fixed;
+      top:0; left:0;
+      width:100%;
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background: linear-gradient(-45deg,#6a11cb,#2575fc,#ff416c,#ff4b2b);
+      background-size:400% 400%;
+      animation: gradientBG 8s ease infinite;
+      color:white;
+      font-size:24px;
+      font-weight:bold;
+      z-index:9999;
+    }
+    @keyframes gradientBG {
+      0% {background-position:0% 50%;}
+      50% {background-position:100% 50%;}
+      100% {background-position:0% 50%;}
+    }
+  </style>
 </head>
 <body>
+  <div id="loader">Loading dashboard...</div>
 
-<!-- Loader -->
-<div id="loader">Loading dashboard...</div>
-
-<!-- EB OFF -->
-<div id="ebOff">⚡ EB OFF</div>
-
-<!-- Install button -->
-<button id="installBtn">⬇️ Install App</button>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
-  authDomain: "linknest-6e4c7.firebaseapp.com",
-  databaseURL: "https://linknest-6e4c7-default-rtdb.firebaseio.com",
-  projectId: "linknest-6e4c7",
-  storageBucket: "linknest-6e4c7.firebasestorage.app",
-  messagingSenderId: "464019230541",
-  appId: "1:464019230541:web:c980aa3f971092f53ab104"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const loader = document.getElementById("loader");
-const ebOff = document.getElementById("ebOff");
-let iframe = null;
-
-// Fade helpers
-function fadeIn(el){ el.style.opacity = 1; el.style.pointerEvents='all'; }
-function fadeOut(el){ el.style.opacity = 0; el.style.pointerEvents='none'; }
-
-// Listen for URL changes in Firebase
-const urlRef = ref(db, "urls/lastUrl");
-onValue(urlRef, snapshot => {
-  if(snapshot.exists()){
-    const url = snapshot.val().link;
-    if(url){
-      fadeOut(ebOff);
-
-      // Remove old iframe if exists
-      if(iframe) iframe.remove();
-
-      // Dynamically create iframe after loader is painted
-      requestAnimationFrame(() => {
-        iframe = document.createElement("iframe");
-        iframe.style.position = "fixed";
-        iframe.style.top = "0";
-        iframe.style.left = "0";
-        iframe.style.width = "100%";
-        iframe.style.height = "100vh";
-        iframe.style.border = "none";
-        iframe.style.opacity = "0";
-        iframe.src = url;
-        document.body.appendChild(iframe);
-
-        iframe.onload = () => {
-          fadeOut(loader);
-          fadeIn(iframe);
-        };
-
-        iframe.onerror = () => {
-          fadeOut(loader);
-          if(iframe) iframe.remove();
-          fadeIn(ebOff);
-        };
-      });
-
-    } else {
-      fadeOut(loader);
-      if(iframe) iframe.remove();
-      fadeIn(ebOff);
-    }
-  } else {
-    fadeOut(loader);
-    if(iframe) iframe.remove();
-    fadeIn(ebOff);
-  }
-});
-</script>
-
-<!-- Service Worker + PWA Install -->
-<script>
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("service-worker.js")
-    .then(()=>console.log("✅ Service Worker registered"))
-    .catch(err=>console.error("❌ Service Worker error:", err));
-}
-
-let deferredPrompt;
-const installBtn = document.getElementById("installBtn");
-
-window.addEventListener("beforeinstallprompt", e=>{
-  e.preventDefault();
-  deferredPrompt = e;
-  installBtn.style.display = "inline-block";
-});
-
-installBtn.addEventListener("click", async ()=>{
-  installBtn.style.display = "none";
-  if(deferredPrompt){
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to install: ${outcome}`);
-    deferredPrompt = null;
-  }
-});
-</script>
-
+  <script>
+    // Reveal body immediately
+    document.body.style.visibility = 'visible';
+  </script>
 </body>
-</html>
