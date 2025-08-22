@@ -1,102 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>PWA Redirect</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    background: linear-gradient(135deg, #317EFB, #6EC6FF);
-    color: white;
-    text-align: center;
-  }
-  #alert {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: red;
-    padding: 10px 20px;
-    border-radius: 8px;
-    display: none;
-    font-weight: bold;
-  }
-</style>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VSENA IOT</title>
+  <link rel="icon" href="assets/image1.png" type="image/png" />
+  <!-- Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#317EFB">
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
-  authDomain: "linknest-6e4c7.firebaseapp.com",
-  databaseURL: "https://linknest-6e4c7-default-rtdb.firebaseio.com",
-  projectId: "linknest-6e4c7",
-  storageBucket: "linknest-6e4c7.firebasestorage.app",
-  messagingSenderId: "464019230541",
-  appId: "1:464019230541:web:c980aa3f971092f53ab104"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// Fetch last URL from Firebase
-async function getLastUrl() {
-  try {
-    const dbRef = ref(db);
-    const snapshot = await get(child(dbRef, "urls/lastUrl"));
-    if (snapshot.exists()) {
-      const lastUrl = snapshot.val().link;
-      if (lastUrl) return lastUrl;
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
     }
-  } catch (err) {
-    console.error(err);
-  }
-  return null;
-}
 
-// Check if URL is reachable
-async function checkUrl(url) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-    const response = await fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal });
-    clearTimeout(timeout);
-    return response.ok || response.type === "opaque"; // opaque for no-cors
-  } catch {
-    return false;
-  }
-}
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
 
-// Show alert
-function showAlert() {
-  const alertBox = document.getElementById("alert");
-  alertBox.style.display = "block";
-  alertBox.innerText = "⚠️ EB OFF / URL unreachable";
-}
-
-// Main
-(async () => {
-  const url = await getLastUrl();
-  if (!url) {
-    showAlert();
-    return;
-  }
-  const reachable = await checkUrl(url);
-  if (reachable) {
-    window.location.href = url; // redirect
-  } else {
-    showAlert();
-  }
-})();
-</script>
+    #installBtn {
+      position: fixed;
+      bottom: 15px;
+      right: 15px;
+      padding: 12px 20px;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 999;
+      display: none; /* hidden by default */
+    }
+  </style>
 </head>
 <body>
-<div id="alert"></div>
-<h2>Loading...</h2>
+  <!-- Dashboard iframe -->
+  <iframe id="dashboard" src=""></iframe>
+
+  <!-- Install button -->
+  <button id="installBtn">⬇️ Install App</button>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
+      authDomain: "linknest-6e4c7.firebaseapp.com",
+      databaseURL: "https://linknest-6e4c7-default-rtdb.firebaseio.com",
+      projectId: "linknest-6e4c7",
+      storageBucket: "linknest-6e4c7.firebasestorage.app",
+      messagingSenderId: "464019230541",
+      appId: "1:464019230541:web:c980aa3f971092f53ab104"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    async function loadDashboard() {
+      try {
+        const snapshot = await get(child(ref(db), "urls/lastUrl"));
+        if (snapshot.exists()) {
+          const url = snapshot.val().link;
+          if (url) {
+            document.getElementById("dashboard").src = url; // load Node-RED dashboard inside app
+          } else {
+            alert("⚠️ URL is empty!");
+          }
+        } else {
+          alert("⚠️ No URL found in database!");
+        }
+      } catch (err) {
+        console.error("❌ Error fetching URL:", err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+
+  <!-- Service Worker + PWA Install -->
+  <script>
+    // Register service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("✅ Service Worker registered"))
+        .catch(err => console.error("❌ Service Worker error:", err));
+    }
+
+    // PWA install
+    let deferredPrompt;
+    const installBtn = document.getElementById("installBtn");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      console.log("📦 PWA install prompt fired");
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = "inline-block"; // show install button
+    });
+
+    installBtn.addEventListener("click", async () => {
+      installBtn.style.display = "none";
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to install: ${outcome}`);
+        deferredPrompt = null;
+      }
+    });
+  </script>
 </body>
 </html>
