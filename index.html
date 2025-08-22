@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VSENA IOT</title>
   <link rel="icon" href="assets/image1.png" type="image/png" />
-  <!-- Manifest -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#317EFB">
 
@@ -15,13 +14,61 @@
       padding: 0;
       height: 100%;
       width: 100%;
-      overflow: hidden;
       font-family: Arial, sans-serif;
     }
 
+    /* Fade animation */
+    .fade {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    .fade.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    #loader, #ebOff, iframe {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    /* Loader with animated gradient */
+    #loader {
+      background: linear-gradient(-45deg, #6a11cb, #2575fc, #ff416c, #ff4b2b);
+      background-size: 400% 400%;
+      animation: gradientBG 8s ease infinite;
+      color: white;
+      font-size: 26px;
+      font-weight: bold;
+      text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+    }
+
+    @keyframes gradientBG {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+
+    /* EB OFF with glitchy effect */
+    #ebOff {
+      background: #111;
+      color: #ff3c3c;
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
+      justify-content: center;
+      align-items: center;
+    }
+
     iframe {
-      width: 100%;
-      height: 100%;
       border: none;
     }
 
@@ -30,20 +77,32 @@
       bottom: 15px;
       right: 15px;
       padding: 12px 20px;
-      background: #FF9800;
+      background: #ff6f61;
       color: white;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
       font-size: 16px;
-      z-index: 999;
-      display: none; /* hidden by default */
+      z-index: 1002;
+      display: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    #installBtn:hover {
+      transform: scale(1.05);
     }
   </style>
 </head>
 <body>
+  <!-- Loader -->
+  <div id="loader" class="fade show">Loading dashboard...</div>
+
+  <!-- EB OFF fallback -->
+  <div id="ebOff" class="fade">⚡ EB OFF</div>
+
   <!-- Dashboard iframe -->
-  <iframe id="dashboard" src=""></iframe>
+  <iframe id="dashboard" class="fade"></iframe>
 
   <!-- Install button -->
   <button id="installBtn">⬇️ Install App</button>
@@ -51,7 +110,7 @@
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
@@ -65,46 +124,67 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const iframe = document.getElementById("dashboard");
+    const loader = document.getElementById("loader");
+    const ebOff = document.getElementById("ebOff");
 
-    async function loadDashboard() {
-      try {
-        const snapshot = await get(child(ref(db), "urls/lastUrl"));
-        if (snapshot.exists()) {
-          const url = snapshot.val().link;
-          if (url) {
-            document.getElementById("dashboard").src = url; // load Node-RED dashboard inside app
-          } else {
-            alert("⚠️ URL is empty!");
+    const urlRef = ref(db, "urls/lastUrl");
+
+    // Fade helper functions
+    function fadeIn(el) { el.classList.add("show"); }
+    function fadeOut(el) { el.classList.remove("show"); }
+
+    // Real-time listener
+    onValue(urlRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const url = snapshot.val().link;
+        if (url) {
+          fadeOut(ebOff);
+
+          if (iframe.src !== url) {
+            iframe.src = url;
+            fadeOut(iframe);
+            fadeIn(loader);
+
+            iframe.onload = () => {
+              fadeOut(loader);
+              fadeIn(iframe);
+            };
+
+            iframe.onerror = () => {
+              fadeOut(loader);
+              fadeOut(iframe);
+              fadeIn(ebOff);
+            };
           }
         } else {
-          alert("⚠️ No URL found in database!");
+          fadeOut(loader);
+          fadeOut(iframe);
+          fadeIn(ebOff);
         }
-      } catch (err) {
-        console.error("❌ Error fetching URL:", err);
+      } else {
+        fadeOut(loader);
+        fadeOut(iframe);
+        fadeIn(ebOff);
       }
-    }
-
-    loadDashboard();
+    });
   </script>
 
   <!-- Service Worker + PWA Install -->
   <script>
-    // Register service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js")
         .then(() => console.log("✅ Service Worker registered"))
         .catch(err => console.error("❌ Service Worker error:", err));
     }
 
-    // PWA install
     let deferredPrompt;
     const installBtn = document.getElementById("installBtn");
 
     window.addEventListener("beforeinstallprompt", (e) => {
-      console.log("📦 PWA install prompt fired");
       e.preventDefault();
       deferredPrompt = e;
-      installBtn.style.display = "inline-block"; // show install button
+      installBtn.style.display = "inline-block";
     });
 
     installBtn.addEventListener("click", async () => {
