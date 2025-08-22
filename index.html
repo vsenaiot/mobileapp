@@ -2,53 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VSENA IOT</title>
-  <link rel="icon" href="assets/image1.png" type="image/png" />
-  <!-- Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#317EFB">
-
+  <title>PWA Redirect</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
+    body {
       font-family: Arial, sans-serif;
-    }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    #installBtn {
-      position: fixed;
-      bottom: 15px;
-      right: 15px;
-      padding: 12px 20px;
-      background: #FF9800;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #317EFB, #6EC6FF);
       color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 16px;
-      z-index: 999;
-      display: none; /* hidden by default */
+      text-align: center;
+    }
+    #alert {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: red;
+      padding: 10px 20px;
+      border-radius: 8px;
+      display: none;
+      font-weight: bold;
     }
   </style>
-</head>
-<body>
-  <!-- Dashboard iframe -->
-  <iframe id="dashboard" src=""></iframe>
-
-  <!-- Install button -->
-  <button id="installBtn">⬇️ Install App</button>
-
-  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
@@ -66,56 +44,64 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    async function loadDashboard() {
+    // -------------------------------
+    // 1️⃣ Update cached URL from Firebase
+    async function updateCachedUrl() {
       try {
-        const snapshot = await get(child(ref(db), "urls/lastUrl"));
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, "urls/lastUrl"));
         if (snapshot.exists()) {
-          const url = snapshot.val().link;
-          if (url) {
-            document.getElementById("dashboard").src = url; // load Node-RED dashboard inside app
-          } else {
-            alert("⚠️ URL is empty!");
-          }
-        } else {
-          alert("⚠️ No URL found in database!");
+          const lastUrl = snapshot.val().link;
+          if (lastUrl) localStorage.setItem("lastUrl", lastUrl);
         }
       } catch (err) {
-        console.error("❌ Error fetching URL:", err);
+        console.error("Error fetching URL:", err);
       }
     }
 
-    loadDashboard();
-  </script>
-
-  <!-- Service Worker + PWA Install -->
-  <script>
-    // Register service worker
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js")
-        .then(() => console.log("✅ Service Worker registered"))
-        .catch(err => console.error("❌ Service Worker error:", err));
+    // -------------------------------
+    // 2️⃣ Redirect using cache
+    function redirectUsingCache() {
+      const cachedUrl = localStorage.getItem("lastUrl");
+      if (cachedUrl) {
+        // Open in a small delay to allow EB check
+        setTimeout(() => checkUrlReachable(cachedUrl), 100); 
+        window.location.href = cachedUrl; // immediate redirect
+      } else {
+        document.body.innerHTML = "<h2>⚠️ No cached URL found!</h2>";
+      }
     }
 
-    // PWA install
-    let deferredPrompt;
-    const installBtn = document.getElementById("installBtn");
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-      console.log("📦 PWA install prompt fired");
-      e.preventDefault();
-      deferredPrompt = e;
-      installBtn.style.display = "inline-block"; // show install button
-    });
-
-    installBtn.addEventListener("click", async () => {
-      installBtn.style.display = "none";
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to install: ${outcome}`);
-        deferredPrompt = null;
+    // -------------------------------
+    // 3️⃣ Check if URL is reachable
+    async function checkUrlReachable(url) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+        const response = await fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) showAlert();
+      } catch (err) {
+        showAlert();
       }
-    });
+    }
+
+    // -------------------------------
+    // 4️⃣ Show EB OFF alert
+    function showAlert() {
+      const alertBox = document.getElementById("alert");
+      alertBox.style.display = "block";
+      alertBox.innerText = "⚠️ EB OFF / URL unreachable";
+    }
+
+    // -------------------------------
+    // Execute
+    redirectUsingCache();
+    updateCachedUrl();
   </script>
+</head>
+<body>
+  <div id="alert"></div>
+  <h2>Loading...</h2>
 </body>
 </html>
