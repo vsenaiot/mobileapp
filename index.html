@@ -12,9 +12,10 @@
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      width: 100%;
+      height: 100vh;
+      width: 100vw;
       font-family: Arial, sans-serif;
+      overflow: hidden;
     }
 
     /* Fade animation */
@@ -32,14 +33,13 @@
     #loader, #ebOff, iframe {
       position: fixed;
       top: 0; left: 0;
-      width: 100%; height: 100%;
-      display: flex;
+      width: 100%;
+      height: 100%;
+      display: flex; /* keep layout for fade */
       justify-content: center;
       align-items: center;
-      z-index: 1000;
     }
 
-    /* Loader with animated gradient */
     #loader {
       background: linear-gradient(-45deg, #6a11cb, #2575fc, #ff416c, #ff4b2b);
       background-size: 400% 400%;
@@ -48,6 +48,7 @@
       font-size: 26px;
       font-weight: bold;
       text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+      z-index: 2000;
     }
 
     @keyframes gradientBG {
@@ -56,7 +57,6 @@
       100% {background-position: 0% 50%;}
     }
 
-    /* EB OFF with glitchy effect */
     #ebOff {
       background: #111;
       color: #ff3c3c;
@@ -66,10 +66,12 @@
       text-shadow: 2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
       justify-content: center;
       align-items: center;
+      z-index: 2000;
     }
 
     iframe {
       border: none;
+      z-index: 1000;
     }
 
     #installBtn {
@@ -83,7 +85,7 @@
       border-radius: 12px;
       cursor: pointer;
       font-size: 16px;
-      z-index: 1002;
+      z-index: 3000;
       display: none;
       box-shadow: 0 4px 15px rgba(0,0,0,0.3);
       transition: transform 0.2s;
@@ -96,7 +98,7 @@
 </head>
 <body>
   <!-- Loader -->
-  <div id="loader" class="fade show">Loading dashboard...</div>
+  <div id="loader" class="fade show" style="display:flex;">Loading dashboard...</div>
 
   <!-- EB OFF fallback -->
   <div id="ebOff" class="fade">⚡ EB OFF</div>
@@ -130,7 +132,7 @@
 
     const urlRef = ref(db, "urls/lastUrl");
 
-    // Fade helper functions
+    // Fade helper
     function fadeIn(el) { el.classList.add("show"); }
     function fadeOut(el) { el.classList.remove("show"); }
 
