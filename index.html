@@ -16,12 +16,12 @@
     width: 100vw;
     font-family: Arial, sans-serif;
     overflow: hidden;
-    background: #6a11cb; /* matches loader gradient start */
+    background: #6a11cb; /* matches loader gradient */
     visibility: hidden;  /* hide until loader paints */
   }
 
-  /* Loader and EB OFF */
-  #loader, #ebOff {
+  /* Loader */
+  #loader {
     position: fixed;
     top:0; left:0;
     width:100%;
@@ -29,20 +29,15 @@
     display:flex;
     justify-content:center;
     align-items:center;
-    transition: opacity 0.5s ease-in-out;
-    z-index: 9999;
-    pointer-events: none;
-  }
-
-  #loader {
     background: linear-gradient(-45deg,#6a11cb,#2575fc,#ff416c,#ff4b2b);
     background-size:400% 400%;
     animation: gradientBG 8s ease infinite;
     color:white;
     font-size: 24px;
     font-weight:bold;
-    opacity:1;
+    z-index:9999;
     pointer-events: all;
+    opacity:1;
   }
 
   @keyframes gradientBG {
@@ -51,13 +46,30 @@
     100% {background-position:0% 50%;}
   }
 
+  /* EB OFF with pulsing glow */
   #ebOff {
+    position: fixed;
+    top:0; left:0;
+    width:100%;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
     background:#111;
     color:#ff3c3c;
     font-size:32px;
     font-weight:bold;
     text-shadow:2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
     opacity:0;
+    transition: opacity 0.5s ease-in-out;
+    z-index:9999;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0% {text-shadow:2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;}
+    50% {text-shadow:2px 2px 20px #ff3c3c, -2px -2px 20px #ff3c3c;}
+    100% {text-shadow:2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;}
   }
 
   /* PWA Install Button */
@@ -82,20 +94,15 @@
 </head>
 <body>
 
-<!-- Loader -->
-<div id="loader">Loading dashboard...</div>
-
-<!-- EB OFF -->
+<div id="loader">Loading...</div>
 <div id="ebOff">⚡ EB OFF</div>
-
-<!-- Install button -->
 <button id="installBtn">⬇️ Install App</button>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-// Reveal body immediately to prevent title/logo flash
+// Reveal body immediately to prevent flash
 document.body.style.visibility = 'visible';
 
 // Firebase config
@@ -120,51 +127,52 @@ let iframe = null;
 function fadeIn(el){ el.style.opacity = 1; el.style.pointerEvents='all'; }
 function fadeOut(el){ el.style.opacity = 0; el.style.pointerEvents='none'; }
 
-// Listen for URL changes in Firebase
+// Function to load iframe with retry
+function loadDashboard(url){
+  // Remove old iframe
+  if(iframe) iframe.remove();
+
+  // Create new iframe dynamically
+  iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.top = "0";
+  iframe.style.left = "0";
+  iframe.style.width = "100%";
+  iframe.style.height = "100vh";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.src = url;
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    fadeOut(loader);
+    fadeIn(iframe);
+    fadeOut(ebOff);
+  };
+
+  iframe.onerror = () => {
+    fadeOut(loader);
+    if(iframe) iframe.remove();
+    fadeIn(ebOff);
+    // Retry after 5 seconds
+    setTimeout(() => loadDashboard(url), 5000);
+  };
+}
+
+// Listen to Firebase for URL
 const urlRef = ref(db, "urls/lastUrl");
 onValue(urlRef, snapshot => {
-  if(snapshot.exists()){
+  if(snapshot.exists() && snapshot.val().link){
     const url = snapshot.val().link;
-    if(url){
-      fadeOut(ebOff);
-
-      // Remove old iframe if exists
-      if(iframe) iframe.remove();
-
-      // Dynamically create iframe after loader is visible
-      requestAnimationFrame(() => {
-        iframe = document.createElement("iframe");
-        iframe.style.position = "fixed";
-        iframe.style.top = "0";
-        iframe.style.left = "0";
-        iframe.style.width = "100%";
-        iframe.style.height = "100vh";
-        iframe.style.border = "none";
-        iframe.style.opacity = "0";
-        iframe.src = url;
-        document.body.appendChild(iframe);
-
-        iframe.onload = () => {
-          fadeOut(loader);
-          fadeIn(iframe);
-        };
-
-        iframe.onerror = () => {
-          fadeOut(loader);
-          if(iframe) iframe.remove();
-          fadeIn(ebOff);
-        };
-      });
-
-    } else {
-      fadeOut(loader);
-      if(iframe) iframe.remove();
-      fadeIn(ebOff);
-    }
+    loadDashboard(url);
   } else {
     fadeOut(loader);
     if(iframe) iframe.remove();
     fadeIn(ebOff);
+    // Retry every 5 seconds
+    setTimeout(() => {
+      if(snapshot.exists() && snapshot.val().link) loadDashboard(snapshot.val().link);
+    }, 5000);
   }
 });
 </script>
@@ -196,6 +204,5 @@ installBtn.addEventListener("click", async ()=>{
   }
 });
 </script>
-
 </body>
 </html>
