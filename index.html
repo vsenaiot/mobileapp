@@ -1,107 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>PWA Redirect</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #317EFB, #6EC6FF);
-      color: white;
-      text-align: center;
+<meta charset="UTF-8">
+<title>PWA Redirect</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: linear-gradient(135deg, #317EFB, #6EC6FF);
+    color: white;
+    text-align: center;
+  }
+  #alert {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: red;
+    padding: 10px 20px;
+    border-radius: 8px;
+    display: none;
+    font-weight: bold;
+  }
+</style>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
+  authDomain: "linknest-6e4c7.firebaseapp.com",
+  databaseURL: "https://linknest-6e4c7-default-rtdb.firebaseio.com",
+  projectId: "linknest-6e4c7",
+  storageBucket: "linknest-6e4c7.firebasestorage.app",
+  messagingSenderId: "464019230541",
+  appId: "1:464019230541:web:c980aa3f971092f53ab104"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Fetch last URL from Firebase
+async function getLastUrl() {
+  try {
+    const dbRef = ref(db);
+    const snapshot = await get(child(dbRef, "urls/lastUrl"));
+    if (snapshot.exists()) {
+      const lastUrl = snapshot.val().link;
+      if (lastUrl) return lastUrl;
     }
-    #alert {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: red;
-      padding: 10px 20px;
-      border-radius: 8px;
-      display: none;
-      font-weight: bold;
-    }
-  </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+  } catch (err) {
+    console.error(err);
+  }
+  return null;
+}
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
-      authDomain: "linknest-6e4c7.firebaseapp.com",
-      databaseURL: "https://linknest-6e4c7-default-rtdb.firebaseio.com",
-      projectId: "linknest-6e4c7",
-      storageBucket: "linknest-6e4c7.firebasestorage.app",
-      messagingSenderId: "464019230541",
-      appId: "1:464019230541:web:c980aa3f971092f53ab104"
-    };
+// Check if URL is reachable
+async function checkUrl(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal });
+    clearTimeout(timeout);
+    return response.ok || response.type === "opaque"; // opaque for no-cors
+  } catch {
+    return false;
+  }
+}
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+// Show alert
+function showAlert() {
+  const alertBox = document.getElementById("alert");
+  alertBox.style.display = "block";
+  alertBox.innerText = "⚠️ EB OFF / URL unreachable";
+}
 
-    // -------------------------------
-    // 1️⃣ Update cached URL from Firebase
-    async function updateCachedUrl() {
-      try {
-        const dbRef = ref(db);
-        const snapshot = await get(child(dbRef, "urls/lastUrl"));
-        if (snapshot.exists()) {
-          const lastUrl = snapshot.val().link;
-          if (lastUrl) localStorage.setItem("lastUrl", lastUrl);
-        }
-      } catch (err) {
-        console.error("Error fetching URL:", err);
-      }
-    }
-
-    // -------------------------------
-    // 2️⃣ Redirect using cache
-    function redirectUsingCache() {
-      const cachedUrl = localStorage.getItem("lastUrl");
-      if (cachedUrl) {
-        // Open in a small delay to allow EB check
-        setTimeout(() => checkUrlReachable(cachedUrl), 100); 
-        window.location.href = cachedUrl; // immediate redirect
-      } else {
-        document.body.innerHTML = "<h2>⚠️ No cached URL found!</h2>";
-      }
-    }
-
-    // -------------------------------
-    // 3️⃣ Check if URL is reachable
-    async function checkUrlReachable(url) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-        const response = await fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!response.ok) showAlert();
-      } catch (err) {
-        showAlert();
-      }
-    }
-
-    // -------------------------------
-    // 4️⃣ Show EB OFF alert
-    function showAlert() {
-      const alertBox = document.getElementById("alert");
-      alertBox.style.display = "block";
-      alertBox.innerText = "⚠️ EB OFF / URL unreachable";
-    }
-
-    // -------------------------------
-    // Execute
-    redirectUsingCache();
-    updateCachedUrl();
-  </script>
+// Main
+(async () => {
+  const url = await getLastUrl();
+  if (!url) {
+    showAlert();
+    return;
+  }
+  const reachable = await checkUrl(url);
+  if (reachable) {
+    window.location.href = url; // redirect
+  } else {
+    showAlert();
+  }
+})();
+</script>
 </head>
 <body>
-  <div id="alert"></div>
-  <h2>Loading...</h2>
+<div id="alert"></div>
+<h2>Loading...</h2>
 </body>
 </html>
