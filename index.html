@@ -18,28 +18,29 @@
     overflow: hidden;
   }
 
-  /* Loader, EB OFF, iframe all fixed */
-  #loader, #ebOff, iframe {
+  /* Loader and EB OFF */
+  #loader, #ebOff {
     position: fixed;
     top:0; left:0;
-    width: 100%;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width:100%;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
     transition: opacity 0.5s ease-in-out;
+    z-index: 9999;
+    pointer-events: none;
   }
 
-  /* Loader animation */
   #loader {
-    background: linear-gradient(-45deg, #6a11cb, #2575fc, #ff416c, #ff4b2b);
-    background-size: 400% 400%;
+    background: linear-gradient(-45deg,#6a11cb,#2575fc,#ff416c,#ff4b2b);
+    background-size:400% 400%;
     animation: gradientBG 8s ease infinite;
-    color: white;
+    color:white;
     font-size: 24px;
-    font-weight: bold;
-    z-index: 9999;
-    opacity: 1;
+    font-weight:bold;
+    opacity:1;
+    pointer-events: all;
   }
 
   @keyframes gradientBG {
@@ -48,23 +49,13 @@
     100% {background-position:0% 50%;}
   }
 
-  /* EB OFF */
   #ebOff {
-    background: #111;
-    color: #ff3c3c;
-    font-size: 32px;
-    font-weight: bold;
-    text-shadow: 2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  /* Iframe */
-  iframe {
-    border: none;
-    z-index: 1;
-    opacity: 0;
+    background:#111;
+    color:#ff3c3c;
+    font-size:32px;
+    font-weight:bold;
+    text-shadow:2px 2px 8px #ff3c3c, -2px -2px 8px #ff3c3c;
+    opacity:0;
   }
 
   /* PWA Install Button */
@@ -95,17 +86,14 @@
 <!-- EB OFF -->
 <div id="ebOff">⚡ EB OFF</div>
 
-<!-- Dashboard iframe -->
-<iframe id="dashboard"></iframe>
-
 <!-- Install button -->
 <button id="installBtn">⬇️ Install App</button>
 
-<!-- Firebase + Loader logic -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyD7Iv_rkzbL85nisC3DmPl3774YMQQ6FFM",
   authDomain: "linknest-6e4c7.firebaseapp.com",
@@ -118,27 +106,38 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const iframe = document.getElementById("dashboard");
+
 const loader = document.getElementById("loader");
 const ebOff = document.getElementById("ebOff");
-
-const urlRef = ref(db, "urls/lastUrl");
+let iframe = null;
 
 // Fade helpers
-function fadeIn(el){ el.style.opacity = 1; el.style.pointerEvents = 'all'; }
-function fadeOut(el){ el.style.opacity = 0; el.style.pointerEvents = 'none'; }
+function fadeIn(el){ el.style.opacity = 1; el.style.pointerEvents='all'; }
+function fadeOut(el){ el.style.opacity = 0; el.style.pointerEvents='none'; }
 
-// Listen to Firebase in real-time
-onValue(urlRef, (snapshot) => {
+// Listen for URL changes in Firebase
+const urlRef = ref(db, "urls/lastUrl");
+onValue(urlRef, snapshot => {
   if(snapshot.exists()){
     const url = snapshot.val().link;
     if(url){
       fadeOut(ebOff);
-      if(iframe.src !== url){
-        // Delay iframe loading for mobile to show loader first
-        requestAnimationFrame(() => { iframe.src = url; });
-        fadeOut(iframe);
-        fadeIn(loader);
+
+      // Remove old iframe if exists
+      if(iframe) iframe.remove();
+
+      // Dynamically create iframe after loader is painted
+      requestAnimationFrame(() => {
+        iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100vh";
+        iframe.style.border = "none";
+        iframe.style.opacity = "0";
+        iframe.src = url;
+        document.body.appendChild(iframe);
 
         iframe.onload = () => {
           fadeOut(loader);
@@ -147,18 +146,19 @@ onValue(urlRef, (snapshot) => {
 
         iframe.onerror = () => {
           fadeOut(loader);
-          fadeOut(iframe);
+          if(iframe) iframe.remove();
           fadeIn(ebOff);
         };
-      }
+      });
+
     } else {
       fadeOut(loader);
-      fadeOut(iframe);
+      if(iframe) iframe.remove();
       fadeIn(ebOff);
     }
   } else {
     fadeOut(loader);
-    fadeOut(iframe);
+    if(iframe) iframe.remove();
     fadeIn(ebOff);
   }
 });
